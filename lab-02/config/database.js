@@ -6,7 +6,25 @@ const dbPath = path.join(__dirname, '..', 'database.db');
 let dbInstance = null;
 
 /**
- * Initializes the SQLite database connection and ensures tables exist.
+ * Initial seed data – inserted only when the book table is empty.
+ * This ensures data is present on fresh Render deployments.
+ */
+const SEED_BOOKS = [
+  { title: 'To Kill a Mockingbird', author: 'Harper Lee', price: 450, pages: 281 },
+  { title: '1984', author: 'George Orwell', price: 350, pages: 328 },
+  { title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', price: 299, pages: 180 },
+  { title: 'Pride and Prejudice', author: 'Jane Austen', price: 399, pages: 279 },
+  { title: 'The Catcher in the Rye', author: 'J.D. Salinger', price: 420, pages: 234 },
+  { title: 'The Hobbit', author: 'J.R.R. Tolkien', price: 499, pages: 310 },
+  { title: 'Fahrenheit 451', author: 'Ray Bradbury', price: 320, pages: 249 },
+  { title: 'Brave New World', author: 'Aldous Huxley', price: 380, pages: 268 },
+  { title: 'Crime and Punishment', author: 'Fyodor Dostoevsky', price: 550, pages: 671 },
+  { title: 'The Alchemist', author: 'Paulo Coelho', price: 250, pages: 208 },
+];
+
+/**
+ * Initializes the SQLite database connection, creates the table,
+ * and seeds initial data if the table is empty.
  * @returns {Promise<import('sqlite').Database>}
  */
 async function initializeDB() {
@@ -20,7 +38,7 @@ async function initializeDB() {
       driver: sqlite3.Database,
     });
 
-    // Ensure the book table exists with all required columns and constraints
+    // Create the book table if it does not exist
     await dbInstance.exec(`
       CREATE TABLE IF NOT EXISTS book (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +48,18 @@ async function initializeDB() {
         pages INTEGER NOT NULL
       );
     `);
+
+    // Seed initial data only if the table is empty
+    const row = await dbInstance.get('SELECT COUNT(*) AS total FROM book;');
+    if (row.total === 0) {
+      const insertSQL = `
+        INSERT INTO book (title, author, price, pages) VALUES (?, ?, ?, ?);
+      `;
+      for (const book of SEED_BOOKS) {
+        await dbInstance.run(insertSQL, [book.title, book.author, book.price, book.pages]);
+      }
+      console.log(`Seeded ${SEED_BOOKS.length} initial books into the database.`);
+    }
 
     console.log(`Connected to SQLite database at: ${dbPath}`);
     return dbInstance;
@@ -67,4 +97,3 @@ module.exports = {
   closeDB,
   dbPath,
 };
-
